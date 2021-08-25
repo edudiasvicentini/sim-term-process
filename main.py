@@ -77,4 +77,34 @@ def get_file_names_dict(file_names: list) -> dict:
 
     return files_dict
 
+def read_csv_to_dict_dfs(file_names_dict: dict, path: str = '') -> dict:
+    """Recebe a lista de nomes e opcionalmete um caminho e le os arquivos
+    csv para um dicionario de DataFrame."""
+
+    dfs = dict()
+    for adsort in file_names_dict:
+        dfs[adsort] = pd.read_csv(os.path.join(path, file_names_dict[adsort]))
+    
+    return dfs
+
+def get_rooms_cols(df: pd.DataFrame) -> list:
+    """Recebe um DataFrame e retorna as colunas que são de comodos"""
+    
+    return [header for header in df.columns if "Date/Time" 
+            not in header and "Drybulb" not in header]
+
+def create_df_agg(dict_dfs: dict, rooms_cols: list) -> pd.DataFrame:
+    """Recebe o dicionário com todos os dataframes por adsortância
+    e a lista de cols que se referem a cômodos. Retorna o dataframe
+    agregando por comodo, todas as adsortâncias."""
+    
+    agg_dict = dict()
+    for adsort in dict_dfs:
+        cols = {room: (room, adsort) for room in rooms_cols}
+        cols.update({col: (col, "SEASON") for col in dict_dfs[adsort] 
+            if col not in rooms_cols})
+        agg_dict.update(dict_dfs[adsort].rename(columns=cols).to_dict())
+    
+    return pd.DataFrame(agg_dict)
+
 
