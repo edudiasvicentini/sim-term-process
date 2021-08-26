@@ -106,3 +106,113 @@ class CriaDataFrameUnicoTestCase(unittest.TestCase):
         df_agg_t = target.create_df_agg({0.3: self.df,
             0.5: self.df}, target.get_rooms_cols(self.df))
         self.assertCountEqual([i for i in df_agg_t.columns], headers)
+
+class DivideDataFramesPorEstacaoTestCase(unittest.TestCase):
+
+    def setUp(self):
+        self.file_path = os.path.join(os.path.dirname(__file__), 'test_files', 'Outputs Sim')
+
+        self.df = pd.DataFrame([
+            {"Date/Time": "01/01  01:00:00" ,"Drybulb temp":20.0, "AP1_INV_QUARTO 1": 30.0, "AP1_INV_SALA 1": 22.0},
+            {"Date/Time": "01/01  02:00:00" ,"Drybulb temp":30.1, "AP1_INV_QUARTO 1": 30.0, "AP1_INV_SALA 1": 21.0},
+            {"Date/Time": "01/01  03:00:00" ,"Drybulb temp":23.28,"AP1_INV_QUARTO 1": 22.0, "AP1_INV_SALA 1": 22.0},
+            {"Date/Time": "01/01  04:00:00" ,"Drybulb temp":21.1, "AP1_VER_QUARTO 1": 10.0, "AP1_VER_SALA 1": 21.0},
+            {"Date/Time": "01/01  05:00:00" ,"Drybulb temp":22.1, "AP1_VER_QUARTO 1": 12.0, "AP1_VER_SALA 1": 22.0},
+            {"Date/Time": "01/01  06:00:00" ,"Drybulb temp":23.1, "AP1_VER_QUARTO 1": 16.0, "AP1_VER_SALA 1": 21.0},
+            ])
+
+        self.df_dict = {0.3:self.df, 0.5:self.df}
+        self.df_agg = target.create_df_agg(self.df_dict, target.get_rooms_cols(self.df))
+
+        self.df_csv = pd.read_csv(os.path.join(self.file_path, 'Morumbi R12-0.3 1R CS.csv'))
+
+    def test_get_temp_col(self):
+        col = "Drybulb temp"
+        col_t = target.get_temp_col(self.df)
+        self.assertEqual(col, col_t)
+
+    def test_get_max_temp(self):
+        temp = 30.1
+        temp_t = target.get_max_temp(self.df)
+        self.assertEqual(temp, temp_t)
+
+    def test_divide_df_by_season(self):
+        df_ver, df_inv = target.get_df_seasons(self.df_agg)
+        pd.testing.assert_frame_equal(df_ver, self.df_agg[0:3])
+        self.assertCountEqual([i for i in df_inv.columns],
+                [i for i in self.df_agg.columns])
+
+    def test_divide_df_by_season_reverse(self):
+        df_agg = self.df_agg.iloc[::-1].reset_index(drop=True)
+        df_ver, df_inv = target.get_df_seasons(df_agg)
+        pd.testing.assert_frame_equal(df_ver, df_agg[3:].reset_index(drop=True))
+        self.assertCountEqual(df_ver["Drybulb temp"], self.df_agg[0:3]["Drybulb temp"])
+
+    def test_replace_header_season_ver(self):
+        headers = [
+                ('Date/Time', 'Verão'), 
+                ('Drybulb temp', 'Verão'), 
+                ('AP1_INV_QUARTO 1', 0.3), 
+                ('AP1_VER_QUARTO 1', 0.3), 
+                ('AP1_INV_SALA 1', 0.3), 
+                ('AP1_VER_SALA 1', 0.3), 
+                ('AP1_INV_QUARTO 1', 0.5), 
+                ('AP1_VER_QUARTO 1', 0.5), 
+                ('AP1_INV_SALA 1', 0.5), 
+                ('AP1_VER_SALA 1', 0.5), 
+                ]
+        df_ver, df_inv = target.get_df_seasons(self.df_agg)
+        df_t = target.replace_header_season(df_ver, 'Verão')
+        headers_t = df_t.columns.to_list()
+        self.assertCountEqual(headers, headers_t)
+
+
+    def test_replace_header_season_inv(self):
+        headers = [
+                ('Date/Time', 'Inverno'), 
+                ('Drybulb temp', 'Inverno'), 
+                ('AP1_INV_QUARTO 1', 0.3), 
+                ('AP1_VER_QUARTO 1', 0.3), 
+                ('AP1_INV_SALA 1', 0.3), 
+                ('AP1_VER_SALA 1', 0.3), 
+                ('AP1_INV_QUARTO 1', 0.5), 
+                ('AP1_VER_QUARTO 1', 0.5), 
+                ('AP1_INV_SALA 1', 0.5), 
+                ('AP1_VER_SALA 1', 0.5), 
+                ]
+        df_ver, df_inv = target.get_df_seasons(self.df_agg)
+        df_t = target.replace_header_season(df_inv, 'Inverno')
+        headers_t = df_t.columns.to_list()
+        self.assertCountEqual(headers, headers_t)
+    
+
+    def test_drop_irrelevant_cols(self):
+        headers = [
+                ('Date/Time', 'Inverno'), 
+                ('Drybulb temp', 'Inverno'), 
+                ('AP1_INV_QUARTO 1', 0.3), 
+                ('AP1_INV_SALA 1', 0.3), 
+                ('AP1_INV_QUARTO 1', 0.5), 
+                ('AP1_INV_SALA 1', 0.5), 
+                ]
+        df_ver, df_inv = target.get_df_seasons(self.df_agg)
+        df_r = target.replace_header_season(df_inv, 'Inverno')
+        df_t = target.drop_irrelevant_cols(df_r, 'Inverno')
+        headers_t = df_t.columns.to_list()
+        self.assertCountEqual(headers, headers_t)
+        
+
+    def test_replace_drop_header_dfs(self):
+        headers = [
+                ('Date/Time', 'Inverno'), 
+                ('Drybulb temp', 'Inverno'), 
+                ('AP1_INV_QUARTO 1', 0.3), 
+                ('AP1_INV_SALA 1', 0.3), 
+                ('AP1_INV_QUARTO 1', 0.5), 
+                ('AP1_INV_SALA 1', 0.5), 
+                ]
+        df_ver, df_inv = target.get_df_seasons(self.df_agg)
+        df_ver_t, df_inv_t = target.replace_drop_header_dfs(df_ver, df_inv)
+        headers_t = df_inv_t.columns.to_list()
+        self.assertCountEqual(headers, headers_t)
+        

@@ -108,3 +108,78 @@ def create_df_agg(dict_dfs: dict, rooms_cols: list) -> pd.DataFrame:
     return pd.DataFrame(agg_dict)
 
 
+def get_temp_col(df: pd.DataFrame) -> pd.DataFrame:
+    """Recebe dataframe e retorna coluna da temperatura
+    pela keyword Drybulb"""
+
+    for col in df.columns:
+        if isinstance(col, tuple):
+            for item in col:
+                if 'drybulb' in item.lower():
+                    return col
+        elif "drybulb" in col.lower():
+            return col
+
+def get_max_temp(df: pd.DataFrame) -> float:
+    """Recebe um dataframe e retorna a temperatura maxima
+    dele"""
+
+    temp_col = get_temp_col(df)
+    return float(df[temp_col].max())
+
+
+def get_df_seasons(df: pd.DataFrame) -> pd.DataFrame:
+    """Recebe um dataframe e retorna dois dataframes, um para o verão
+    e outro para o inverno."""
+    
+    size = int(len(df.index) / 2)
+    df1 = df[:size].reset_index(drop=True)
+    df2 = df[size:].reset_index(drop=True)
+
+    df1_max = get_max_temp(df1)
+    df2_max = get_max_temp(df2)
+   
+    if df1_max >= df2_max:
+        df_ver = df1
+        df_inv = df2
+    else:
+        df_ver = df2
+        df_inv = df1
+
+    return df_ver, df_inv
+
+def replace_header_season(df: pd.DataFrame, season: str) -> pd.DataFrame:
+    """Recebe um dataframe e uma string e substitui essa
+    string em cabeçalhos que tiver 'season' no nome"""
+    
+    cols = {col[1]: season for col in df.columns 
+            if 'SEASON' in col}
+    
+    return df.rename(columns=cols, level=1)
+
+
+def drop_irrelevant_cols(df: pd.DataFrame, season: str) -> pd.DataFrame:
+    """Recebe um dataframe e uma string e dropa as colunas 
+    irrelevantes"""
+
+    ver_cols = [col for col in df.columns if '_VER_' in col[0]]
+    inv_cols = [col for col in df.columns if '_INV_' in col[0]]
+
+    if season == 'Verão':
+        return df.drop(inv_cols, axis=1)
+    else:
+        return df.drop(ver_cols, axis=1)
+
+
+def replace_drop_header_dfs(df_ver: pd.DataFrame, df_inv: pd.DataFrame) -> pd.DataFrame:
+    """Recebe os dois dataframes de verão e inverno e retorna
+    a aplicação da fonte replace_header_season neles"""
+
+    return (drop_irrelevant_cols(
+                replace_header_season(df_ver, 'Verão'),
+                'Verão'), 
+            drop_irrelevant_cols( 
+                replace_header_season(df_inv, 'Inverno'),
+                'Inverno')
+            )
+
