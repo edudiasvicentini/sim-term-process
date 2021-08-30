@@ -10,6 +10,8 @@ import sys
 from seaborn import light_palette
 from weasyprint import HTML
 from itertools import product
+import numpy as np
+
 
 abs_path = "C:/iot_sim_proc"
 
@@ -89,7 +91,11 @@ def read_csv_to_dict_dfs(file_names_dict: dict, path: str = '') -> dict:
 
 def get_rooms_cols(df: pd.DataFrame) -> list:
     """Recebe um DataFrame e retorna as colunas que são de comodos"""
-    
+   
+    if isinstance(df.columns[0], tuple):
+        return [header for header in df.columns if "Date/Time" 
+            not in header[0] and "Drybulb" not in header[0]]
+   
     return [header for header in df.columns if "Date/Time" 
             not in header and "Drybulb" not in header]
 
@@ -120,12 +126,33 @@ def get_temp_col(df: pd.DataFrame) -> pd.DataFrame:
         elif "drybulb" in col.lower():
             return col
 
+def get_time_col(df: pd.DataFrame) -> pd.DataFrame:
+    """Recebe dataframe e retorna coluna da temperatura
+    pela keyword Date/Time"""
+
+    for col in df.columns:
+        if isinstance(col, tuple):
+            for item in col:
+                if 'date/time' in item.lower():
+                    return col
+        elif "date/time" in col.lower():
+            return col
+
+
 def get_max_temp(df: pd.DataFrame) -> float:
     """Recebe um dataframe e retorna a temperatura maxima
     dele"""
 
     temp_col = get_temp_col(df)
     return float(df[temp_col].max())
+
+
+def get_min_temp(df: pd.DataFrame) -> float:
+    """Recebe um dataframe e retorna a temperatura minima
+    dele"""
+
+    temp_col = get_temp_col(df)
+    return float(df[temp_col].min())
 
 
 def get_df_seasons(df: pd.DataFrame) -> pd.DataFrame:
@@ -182,4 +209,36 @@ def replace_drop_header_dfs(df_ver: pd.DataFrame, df_inv: pd.DataFrame) -> pd.Da
                 replace_header_season(df_inv, 'Inverno'),
                 'Inverno')
             )
+
+def test_temp(temp: float, temp_obj: float, func_obj) -> bool: 
+    """Recebe um valor e um valor objetivo e uma função de 
+    comparação(min ou max).
+    Se o valor retornado pela função for igual ao valor passado
+    retorna True. Se não, retorna False."""
+    return (temp == func_obj(temp, temp_obj) or 
+            np.isnan(temp))
+    
+
+def fail_temps(df: pd.DataFrame, season="Verão") -> dict:
+    """Recebe um dataframe agregado das adsortâncias e a estação
+    e retorna um dicionario dos comodos e adsortâncias, como
+    chave, e, como valor, o horário."""
+   
+    if season == "Verão":
+        obj_temp = get_max_temp(df)
+        obj_func = min
+    else:
+        obj_temp = get_min_temp(df) + 3
+        obj_func = max
+    
+    time_col = get_time_col(df)
+    room_cols = get_rooms_cols(df)
+    fail_cols = dict()
+
+    for header in room_cols:
+        for i in df[header].index:
+            if not test_temp(df[header][i], obj_temp, obj_func):
+                fail_cols[header] = df[time_col][i]
+   
+    return fail_cols
 
