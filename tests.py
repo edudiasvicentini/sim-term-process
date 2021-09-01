@@ -258,3 +258,23 @@ class RetornaValoresForaDoLimiteTestCase(unittest.TestCase):
                 }
         self.assertCountEqual(fail_cols_inv, fail_cols_inv_t)
 
+
+class RetornaValoresForaDoLimiteTestCase(unittest.TestCase):
+
+    def setUp(self):
+        self.df = pd.DataFrame([
+            {"Date/Time": "01/01  01:00:00" ,"Drybulb temp":20.0, "AP1_INV_QUARTO 1": 30.0, "AP1_INV_SALA 1": 22.0},
+            {"Date/Time": "01/01  02:00:00" ,"Drybulb temp":30.1, "AP1_INV_QUARTO 1": 30.0, "AP1_INV_SALA 1": 21.0},
+            {"Date/Time": "01/01  03:00:00" ,"Drybulb temp":23.28,"AP1_INV_QUARTO 1": 22.0, "AP1_INV_SALA 1": 22.0},
+            {"Date/Time": "01/01  04:00:00" ,"Drybulb temp":21.1, "AP1_VER_QUARTO 1": 10.0, "AP1_VER_SALA 1": 21.0},
+            {"Date/Time": "01/01  05:00:00" ,"Drybulb temp":22.1, "AP1_VER_QUARTO 1": 12.0, "AP1_VER_SALA 1": 22.0},
+            {"Date/Time": "01/01  06:00:00" ,"Drybulb temp":23.1, "AP1_VER_QUARTO 1": 16.0, "AP1_VER_SALA 1": 21.0},
+            ])
+
+        self.df_dict = {0.3:self.df, 0.5:self.df, 0.3:self.df}
+        self.df_agg = target.create_df_agg(self.df_dict, target.get_rooms_cols(self.df))
+        self.df_ver, self.df_inv = target.get_df_seasons(self.df_agg)
+        self.df_ver_f, self.df_inv_f = target.replace_drop_header_dfs(self.df_ver, self.df_inv)
+
+    def test_texto_report(self):
+        pass
