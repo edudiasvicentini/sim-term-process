@@ -242,8 +242,8 @@ class RetornaValoresForaDoLimiteTestCase(unittest.TestCase):
     def test_fail_temps_ver(self):
         fail_cols_ver = target.fail_temps(self.df_ver_f)
         fail_cols_ver_t = {
-                ("AP1_VER_SALA 1", 0.3): "01/01  06:00:00",
-                ("AP1_VER_SALA 1", 0.5): "01/01  06:00:00",
+                ("AP1_VER_SALA 1", 0.3): ["01/01  06:00:00"],
+                ("AP1_VER_SALA 1", 0.5): ["01/01  06:00:00"],
                 }
         self.assertEqual(fail_cols_ver, fail_cols_ver_t)
 
@@ -251,10 +251,10 @@ class RetornaValoresForaDoLimiteTestCase(unittest.TestCase):
     def test_fail_temps_inv(self):
         fail_cols_inv = target.fail_temps(self.df_inv_f, 'INV')
         fail_cols_inv_t = {
-                ("AP1_INV_QUARTO 2", 0.3): "01/01  03:00:00",
-                ("AP1_INV_SALA 1", 0.3): "01/01  01:00:00",
-                ("AP1_INV_QUARTO 2", 0.5): "01/01  03:00:00",
-                ("AP1_INV_SALA 1", 0.5): "01/01  01:00:00",
+                ("AP1_INV_QUARTO 2", 0.3): ["01/01  03:00:00"],
+                ("AP1_INV_SALA 1", 0.3):   ["01/01  01:00:00"],
+                ("AP1_INV_QUARTO 2", 0.5): ["01/01  03:00:00"],
+                ("AP1_INV_SALA 1", 0.5):   ["01/01  01:00:00"],
                 }
         self.assertCountEqual(fail_cols_inv, fail_cols_inv_t)
 
@@ -281,10 +281,17 @@ class RetornaValoresForaDoLimiteTestCase(unittest.TestCase):
     def test_process_fail_temps(self):
         df_fails_t = target.process_fail_temps(self.fail_cols_inv)
         df_fails = pd.DataFrame([
-            {"ultimo horario": "01/01  03:00:00" 
+            {"horario": "01/01  01:00:00" 
+            ,"AP1_INV_QUARTO 1": "0.3, 0.5"
+            ,"AP1_INV_SALA 1": "0.3, 0.5"},
+            {"horario": "01/01  02:00:00" 
+            ,"AP1_INV_QUARTO 1": "0.3, 0.5"
+            ,"AP1_INV_SALA 1": "0.3, 0.5"},
+            {"horario": "01/01  03:00:00" 
             ,"AP1_INV_QUARTO 1": "0.3, 0.5"
             ,"AP1_INV_SALA 1": "0.3, 0.5"},
                 ])
-        pd.testing.assert_frame_equal(df_fails_t, df_fails)
+
+        pd.testing.assert_frame_equal(df_fails_t, df_fails, check_like=True)
 
 

@@ -23,7 +23,6 @@ def write_df(df: pd.DataFrame, file_name: str, writer: pd.ExcelWriter, sr_type: 
     df.columns.to_frame().transpose().to_excel(writer, startrow=nrows)
     nrows += 1
     df.to_excel(writer,header=False,startrow=nrows)
-    #df.to_excel(os.path.join(abs_path, out_path, file_name), merge_cells=True)
 
     return len(df.index) + nrows + 2
 
@@ -36,7 +35,7 @@ def write_df_fails(df: pd.DataFrame, file_name: str, writer: pd.ExcelWriter, sr_
     nrows += 1
     df.to_excel(writer,header=False,startrow=nrows, index=False)
 
-    return len(df.index) + nrows + 2
+    return len(df.index) + nrows + 1
 
 def to_pdf(file_name: str, html: str) -> str:
     """Recebe um nome de arquivo e uma representação em html
@@ -128,14 +127,14 @@ def create_df_agg(dict_dfs: dict, rooms_cols: list) -> pd.DataFrame:
     
     agg_dict = dict()
     for adsort in dict_dfs:
-        cols = {room: (room, adsort) for room in rooms_cols}
+        cols = {room: (room.split(':')[0], adsort) for room in rooms_cols}
         cols.update({col: (col, "SEASON") for col in dict_dfs[adsort] 
             if col not in rooms_cols})
         agg_dict.update(dict_dfs[adsort].rename(columns=cols).to_dict())
    
     sorted_dict = sorted(agg_dict.items())
+    
     return pd.DataFrame(dict(sorted_dict))
-    #return pd.DataFrame(agg_dict)
 
 
 def get_temp_col(df: pd.DataFrame) -> pd.DataFrame:
@@ -274,7 +273,11 @@ def fail_temps(df: pd.DataFrame, season="Verão") -> dict:
     for header in room_cols:
         for i in df[header].index:
             if not test_temp(df[header][i], obj_temp, obj_func):
-                fail_cols[header] = df[time_col][i]
+                try:
+                    fail_cols[header].append(df[time_col][i])
+                    fail_cols[header] = sorted(fail_cols[header])
+                except KeyError:
+                    fail_cols[header] = [df[time_col][i]]
     
     return fail_cols
 
@@ -287,23 +290,23 @@ def process_fail_temps(fail_cols: dict) -> pd.DataFrame:
     hours = set()
 
     for header in fail_cols:
-        hours.add(fail_cols[header])
+        hours.update(fail_cols[header])
     
+    hours = sorted(hours)
     for hour in hours:
         fail_cols_proc = dict()
-        fail_cols_proc['ultimo horario'] = hour
+        fail_cols_proc['horario'] = hour
         fail_cols_procs.append(copy.deepcopy(fail_cols_proc))
     
     for header in fail_cols:
-        hour = fail_cols[header]
-        for dictionary in fail_cols_procs:
-            if hour == dictionary['ultimo horario']:
-                try:
-                    dictionary[header[0]] += f", {header[1]}"
-                except KeyError:
-                    dictionary[header[0]] = f"{header[1]}"
+        for hour in fail_cols[header]:
+            for dictionary in fail_cols_procs:
+                if hour == dictionary['horario']:
+                    try:
+                        dictionary[header[0]] += f", {header[1]}"
+                    except KeyError:
+                        dictionary[header[0]] = f"{header[1]}"
    
-    
     return pd.DataFrame(fail_cols_procs)
 
 
