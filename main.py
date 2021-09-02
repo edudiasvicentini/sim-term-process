@@ -27,6 +27,16 @@ def write_df(df: pd.DataFrame, file_name: str, writer: pd.ExcelWriter, sr_type: 
 
     return len(df.index) + nrows + 2
 
+def write_df_fails(df: pd.DataFrame, file_name: str, writer: pd.ExcelWriter, sr_type: str, nrows: int) -> int:
+    
+    nome = pd.DataFrame([{'nome': sr_type}])
+    nome.to_excel(writer, header=False, startrow=nrows, index=False)
+    nrows += 1
+    df.columns.to_frame().transpose().to_excel(writer, startrow=nrows, header=False, index=False)
+    nrows += 1
+    df.to_excel(writer,header=False,startrow=nrows, index=False)
+
+    return len(df.index) + nrows + 2
 
 def to_pdf(file_name: str, html: str) -> str:
     """Recebe um nome de arquivo e uma representação em html
@@ -131,6 +141,7 @@ def create_df_agg(dict_dfs: dict, rooms_cols: list) -> pd.DataFrame:
 def get_temp_col(df: pd.DataFrame) -> pd.DataFrame:
     """Recebe dataframe e retorna coluna da temperatura
     pela keyword Drybulb"""
+    
     room_cols = get_rooms_cols(df)
     possible_cols = [col for col in df.columns if col not in room_cols]
     for col in possible_cols:
@@ -145,7 +156,9 @@ def get_time_col(df: pd.DataFrame) -> pd.DataFrame:
     """Recebe dataframe e retorna coluna da temperatura
     pela keyword Date/Time"""
 
-    for col in df.columns:
+    room_cols = get_rooms_cols(df)
+    possible_cols = [col for col in df.columns if col not in room_cols]
+    for col in possible_cols:
         if isinstance(col, tuple):
             for item in col:
                 if 'date/time' in item.lower():
@@ -262,15 +275,39 @@ def fail_temps(df: pd.DataFrame, season="Verão") -> dict:
         for i in df[header].index:
             if not test_temp(df[header][i], obj_temp, obj_func):
                 fail_cols[header] = df[time_col][i]
-   
+    
     return fail_cols
 
 
-def main():  
-    path_sim_folder = os.path.join(abs_path, "sim")
-    
+def process_fail_temps(fail_cols: dict) -> pd.DataFrame:
+    """Recebe o dicionários com as temperaturas falhas e
+    retorna o data_frame dos problemas"""
+   
+    fail_cols_procs = list()
+    hours = set()
 
-    logs_path = os.path.join(abs_path, 'sim_term.log')
+    for header in fail_cols:
+        hours.add(fail_cols[header])
+    
+    for hour in hours:
+        fail_cols_proc = dict()
+        fail_cols_proc['ultimo horario'] = hour
+        fail_cols_procs.append(copy.deepcopy(fail_cols_proc))
+    
+    for header in fail_cols:
+        hour = fail_cols[header]
+        for dictionary in fail_cols_procs:
+            if hour == dictionary['ultimo horario']:
+                try:
+                    dictionary[header[0]] += f", {header[1]}"
+                except KeyError:
+                    dictionary[header[0]] = f"{header[1]}"
+   
+    
+    return pd.DataFrame(fail_cols_procs)
+
+
+def set_logging(logs_path: str):
     logFormatter = logging.Formatter(
         "%(asctime)s [%(levelname)-5.5s]  %(message)s")
 
@@ -292,6 +329,13 @@ def main():
         sys.stderr = open(logs_path, 'w')
     
 
+
+def main():  
+    path_sim_folder = os.path.join(abs_path, "sim")
+    
+    logs_path = os.path.join(abs_path, 'sim_term.log')
+    set_logging(logs_path)
+
     try:
         file_names_list = os.listdir(path_sim_folder)
     except FileNotFoundError:
@@ -306,8 +350,14 @@ def main():
             , engine='xlsxwriter')
     writer_inv = pd.ExcelWriter(os.path.join(abs_path, out_path, "sim_inv.xlsx")
             , engine='xlsxwriter')
+    writer_ver_fails = pd.ExcelWriter(os.path.join(abs_path, out_path, "fails_ver.xlsx")
+            , engine='xlsxwriter')
+    writer_inv_fails = pd.ExcelWriter(os.path.join(abs_path, out_path, "fails_inv.xlsx")
+            , engine='xlsxwriter')
     nrows_ver = 0
     nrows_inv = 0
+    nrows_ver_fails = 0
+    nrows_inv_fails = 0
     for sr_type in file_names_dict:
         logging.info(f"Lendo {sr_type}")
         dict_dfs = read_csv_to_dict_dfs(file_names_dict[sr_type], path_sim_folder)
@@ -317,14 +367,28 @@ def main():
 
         nrows_ver = write_df(df_ver, 'sim_ver', writer_ver, sr_type, nrows_ver)
         nrows_inv = write_df(df_inv, 'sim_inv', writer_inv, sr_type, nrows_inv)
+       
+        fail_cols_ver = fail_temps(df_ver, season="Verão")
+        fail_cols_inv = fail_temps(df_inv, season="Inverno")
+        df_ver_fails = process_fail_temps(fail_cols_ver)
+        df_inv_fails = process_fail_temps(fail_cols_inv)
+        nrows_ver_fails = write_df_fails(df_ver_fails, 'fails_ver', writer_ver_fails, sr_type, nrows_ver_fails)
+        nrows_inv_fails = write_df_fails(df_inv_fails, 'fails_inv', writer_inv_fails, sr_type, nrows_inv_fails)
         #df_ver.to_excel(os.path.join(abs_path, out_path, f'{sr_type}_ver.xlsx'), merge_cells=True)
         #df_inv.to_excel(os.path.join(abs_path, out_path, f'{sr_type}_inv.xlsx'))
         #to_pdf(os.path.join(abs_path, out_path, f'sr_type_ver.pdf'), df_ver.to_html())
     
+    
+
+
     writer_ver.save()
     writer_ver.close()
     writer_inv.save()
     writer_inv.close()
+    writer_ver_fails.save()
+    writer_ver_fails.close()
+    writer_inv_fails.save()
+    writer_inv_fails.close()
     sys.stderr.close()
     logging.info("Fim")
 
