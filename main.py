@@ -10,6 +10,7 @@ from weasyprint import HTML
 from itertools import product
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.backends.backend_pdf import PdfPages
 from scipy import interpolate
 
 abs_path = "C:/iot_sim_proc"
@@ -44,6 +45,47 @@ def to_pdf(file_name: str, html: str) -> str:
     para escrever um arquivo pdfi."""
 
     return HTML(string=html).write_pdf(file_name)
+
+def df_plots(file_name: str, df: pd.DataFrame, sr_type: str):
+
+    with PdfPages(file_name) as pdf:
+        temp_col = get_temp_col(df)
+        df.index += 1
+        colormap = plt.cm.nipy_spectral
+        room_cols_season = set(col[0] for col in get_rooms_cols(df))
+        for col in room_cols_season:
+            n_plots = len(df[col].columns) + 1
+            x = range(1, 25)
+            x_interp = np.arange(1, 25, 0.1)
+            
+            for pos, ad in enumerate(df[col].columns): 
+                y = df[col][ad].values
+                tck = interpolate.splrep(x, y)
+                y_interp = interpolate.splev(x_interp, tck, der=0)
+                plt.plot(x, y, 'o', color=colormap(pos/n_plots), markersize=2)
+                plt.plot(x_interp, y_interp, label=f"{ad}", color=colormap(pos/n_plots))
+
+            # plot drybulb 
+            y = df[temp_col].values
+            tck = interpolate.splrep(x, y, s=0)
+            y_interp = interpolate.splev(x_interp, tck, der=0)
+            plt.plot(x, y, 'o', color=colormap((pos+1)/n_plots), markersize=2)
+            plt.plot(x_interp, y_interp, label="Drybulb", color=colormap((pos+1)/n_plots) )
+
+            # plot max 
+            max_temp = get_max_temp(df)
+            plt.plot(range(1, 25), [max_temp]*24, label="Max Temp", color=colormap(0.99))
+            
+            plt.legend(loc='lower right', fontsize='x-small')
+            plt.ylabel("Temperatura (ºC)")
+            plt.xlabel("Hora")
+            plt.title(f"{sr_type} {col}")
+
+            d = pdf.infodict()
+
+            pdf.savefig()
+            plt.close()
+
 
 
 def heatmap(df: pd.DataFrame, background_color: str, 
@@ -384,42 +426,9 @@ def main():
         df_inv_fails = process_fail_temps(fail_cols_inv)
         nrows_ver_fails = write_df_fails(df_ver_fails, 'fails_ver', writer_ver_fails, sr_type, nrows_ver_fails)
         nrows_inv_fails = write_df_fails(df_inv_fails, 'fails_inv', writer_inv_fails, sr_type, nrows_inv_fails)
-        #df_ver.to_excel(os.path.join(abs_path, out_path, f'{sr_type}_ver.xlsx'), merge_cells=True)
-        #df_inv.to_excel(os.path.join(abs_path, out_path, f'{sr_type}_inv.xlsx'))
-        #to_pdf(os.path.join(abs_path, out_path, f'sr_type_ver.pdf'), df_ver.to_html())
         
-        temp_col = get_temp_col(df_ver)
-        df_ver.index += 1
-        for col in df_ver.columns:
-            x = range(1, 25)
-            x_interp = np.arange(1, 25, 0.1)
-            
-            for ad in df_ver[col[0]].columns: 
-                y = df_ver[col[0]][ad].values
-                tck = interpolate.splrep(x, y, s=0)
-                y_interp = interpolate.splev(x_interp, tck, der=0)
-                plt.plot(x, y, 'o', x_interp, y_interp, label=f"{ad}")
-
-            #df_ver[col[0]].plot(legend=True)
-            y = df_ver[temp_col].values
-            tck = interpolate.splrep(x, y, s=0)
-            y_interp = interpolate.splev(x_interp, tck, der=0)
-            plt.plot(x, y, 'o', x_interp, y_interp, label="Drybulb")
-
-            #df_ver[temp_col].plot(legend=True, label='Drybulb')
-            
-            max_temp = get_max_temp(df_ver)
-            plt.plot(range(1, 25), [max_temp]*24, label="Max Temp")
-            
-            plt.ylabel("Temperatura (ºC)")
-            plt.xlabel("Hora")
-            plt.title(f"{sr_type} {col[0]} verão")
-            plt.show()
-            break
-        break
-
-        
-
+        df_plots(os.path.join(abs_path, out_path, f'{sr_type}_ver.pdf'), df_ver, sr_type) 
+        df_plots(os.path.join(abs_path, out_path, f'{sr_type}_inv.pdf'), df_inv, sr_type) 
 
     writer_ver.save()
     writer_ver.close()
@@ -429,9 +438,9 @@ def main():
     writer_ver_fails.close()
     writer_inv_fails.save()
     writer_inv_fails.close()
+    
     sys.stderr.close()
     logging.info("Fim")
-
 
 
 if __name__ == '__main__':
