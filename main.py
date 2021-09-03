@@ -9,6 +9,8 @@ from seaborn import light_palette
 from weasyprint import HTML
 from itertools import product
 import numpy as np
+import matplotlib.pyplot as plt
+from scipy import interpolate
 
 abs_path = "C:/iot_sim_proc"
 out_path = 'output'
@@ -64,6 +66,10 @@ def color_header(df: pd.DataFrame, color: str) -> pd.DataFrame:
             [{'selector': 'th',
                 'props': [('background-color', color)]}]
             )
+
+# Plot
+
+#def plot_df(df: pd.DataFrame) -> plt.Figure
     
 
 # ARQUIVOS
@@ -363,6 +369,7 @@ def main():
     nrows_inv_fails = 0
     for sr_type in file_names_dict:
         logging.info(f"Lendo {sr_type}")
+
         dict_dfs = read_csv_to_dict_dfs(file_names_dict[sr_type], path_sim_folder)
         rooms_cols = get_rooms_cols(dict_dfs[list(dict_dfs.keys())[0]])
         df_agg = create_df_agg(dict_dfs, rooms_cols)
@@ -380,8 +387,38 @@ def main():
         #df_ver.to_excel(os.path.join(abs_path, out_path, f'{sr_type}_ver.xlsx'), merge_cells=True)
         #df_inv.to_excel(os.path.join(abs_path, out_path, f'{sr_type}_inv.xlsx'))
         #to_pdf(os.path.join(abs_path, out_path, f'sr_type_ver.pdf'), df_ver.to_html())
-    
-    
+        
+        temp_col = get_temp_col(df_ver)
+        df_ver.index += 1
+        for col in df_ver.columns:
+            x = range(1, 25)
+            x_interp = np.arange(1, 25, 0.1)
+            
+            for ad in df_ver[col[0]].columns: 
+                y = df_ver[col[0]][ad].values
+                tck = interpolate.splrep(x, y, s=0)
+                y_interp = interpolate.splev(x_interp, tck, der=0)
+                plt.plot(x, y, 'o', x_interp, y_interp, label=f"{ad}")
+
+            #df_ver[col[0]].plot(legend=True)
+            y = df_ver[temp_col].values
+            tck = interpolate.splrep(x, y, s=0)
+            y_interp = interpolate.splev(x_interp, tck, der=0)
+            plt.plot(x, y, 'o', x_interp, y_interp, label="Drybulb")
+
+            #df_ver[temp_col].plot(legend=True, label='Drybulb')
+            
+            max_temp = get_max_temp(df_ver)
+            plt.plot(range(1, 25), [max_temp]*24, label="Max Temp")
+            
+            plt.ylabel("Temperatura (ºC)")
+            plt.xlabel("Hora")
+            plt.title(f"{sr_type} {col[0]} verão")
+            plt.show()
+            break
+        break
+
+        
 
 
     writer_ver.save()
