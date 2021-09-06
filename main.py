@@ -12,6 +12,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 from scipy import interpolate
+import seaborn as sns
+
 
 abs_path = "C:/iot_sim_proc"
 out_path = 'output'
@@ -40,53 +42,89 @@ def write_df_fails(df: pd.DataFrame, file_name: str, writer: pd.ExcelWriter, sr_
 
     return len(df.index) + nrows + 1
 
-def to_pdf(file_name: str, html: str) -> str:
-    """Recebe um nome de arquivo e uma representação em html
-    para escrever um arquivo pdfi."""
-
-    return HTML(string=html).write_pdf(file_name)
-
-def df_plots(file_name: str, df: pd.DataFrame, sr_type: str):
+def to_pdf(file_name: str, figs: plt.Figure) -> bool:
+    """Recebe um nome de arquivo e uma lista de figuras
+    para escrever no mesmo pdf."""
 
     with PdfPages(file_name) as pdf:
-        temp_col = get_temp_col(df)
-        df.index += 1
-        colormap = plt.cm.nipy_spectral
-        room_cols_season = set(col[0] for col in get_rooms_cols(df))
-        for col in room_cols_season:
-            n_plots = len(df[col].columns) + 1
-            x = range(1, 25)
-            x_interp = np.arange(1, 25, 0.1)
-            
-            for pos, ad in enumerate(df[col].columns): 
-                y = df[col][ad].values
-                tck = interpolate.splrep(x, y)
-                y_interp = interpolate.splev(x_interp, tck, der=0)
-                plt.plot(x, y, 'o', color=colormap(pos/n_plots), markersize=2)
-                plt.plot(x_interp, y_interp, label=f"{ad}", color=colormap(pos/n_plots))
+        for fig in figs:
+            pdf.savefig(fig)
+    
+        d = pdf.infodict()
 
-            # plot drybulb 
-            y = df[temp_col].values
-            tck = interpolate.splrep(x, y, s=0)
+    return True
+
+
+def df_plots(df: pd.DataFrame, sr_type: str, season: str = "VER"):
+    
+    figs = list()
+    colormap = plt.cm.nipy_spectral
+    
+    # plot max or min
+    if season == "VER":
+        limit_temp = get_max_temp(df)
+    else:
+        limit_temp = get_min_temp(df) + 3
+    
+    temp_col = get_temp_col(df)
+    room_cols_season = set(col[0] for col in get_rooms_cols(df))
+    drybulb_temps = df[temp_col].values
+    x = range(1, 25)
+    tck_drybulb = interpolate.splrep(x, drybulb_temps, s=0)
+    x_interp = np.arange(1, 25, 0.1)
+    
+    for col in room_cols_season:
+        fig, axs = plt.subplots()
+
+        n_plots = len(df[col].columns) + 1
+        
+        for pos, ad in enumerate(df[col].columns): 
+            y = df[col][ad].values
+            tck = interpolate.splrep(x, y)
             y_interp = interpolate.splev(x_interp, tck, der=0)
-            plt.plot(x, y, 'o', color=colormap((pos+1)/n_plots), markersize=2)
-            plt.plot(x_interp, y_interp, label="Drybulb", color=colormap((pos+1)/n_plots) )
+            plt.plot(x, y, 'o', color=colormap(pos/n_plots), markersize=2)
+            plt.plot(x_interp, y_interp, label=f"{ad}", color=colormap(pos/n_plots))
 
-            # plot max 
-            max_temp = get_max_temp(df)
-            plt.plot(range(1, 25), [max_temp]*24, label="Max Temp", color=colormap(0.99))
-            
-            plt.legend(loc='lower right', fontsize='x-small')
-            plt.ylabel("Temperatura (ºC)")
-            plt.xlabel("Hora")
-            plt.title(f"{sr_type} {col}")
+        # plot drybulb 
+        y_interp = interpolate.splev(x_interp, tck_drybulb, der=0)
+        plt.plot(x, drybulb_temps, 'o', color=colormap((pos+1)/n_plots), markersize=2)
+        plt.plot(x_interp, y_interp, label="Drybulb", color=colormap((pos+1)/n_plots) )
 
-            d = pdf.infodict()
+        plt.plot(range(1, 25), [limit_temp]*24, label="Max Temp", color=colormap(0.99))
+        
+        plt.legend(loc='lower right', fontsize='x-small')
+        plt.ylabel("Temperatura (ºC)")
+        plt.xlabel("Hora")
+        plt.title(f"{sr_type} {col}")
 
-            pdf.savefig()
-            plt.close()
+        figs.append(fig) 
+        plt.close()
+
+    return figs
 
 
+def df_heatmap(df: pd.DataFrame, sr_type: str, season="VER"):
+
+    figs = list()
+    
+    temp_col = get_temp_col(df)
+    colormap = plt.cm.nipy_spectral
+    room_cols_season = set(col[0] for col in get_rooms_cols(df))
+
+    for col in room_cols_season:
+        fig, axs = plt.subplots()
+        if season == "VER":
+            ax = sns.heatmap(df[col], annot=True, fmt='.2f', vmax=get_max_temp(df) )
+        else:
+            ax = sns.heatmap(df[col], annot=True, fmt='.2f', vmin=get_min_temp(df)+3, cmap="YlGnBu" )
+        
+        plt.ylabel("Hora")
+        plt.xlabel("Adsortância")
+        plt.title(f"{sr_type} {col}")
+        figs.append(fig)
+        plt.close()
+    
+    return figs
 
 def heatmap(df: pd.DataFrame, background_color: str, 
         text_color: str, vmax: float, threshold: float, 
@@ -109,10 +147,6 @@ def color_header(df: pd.DataFrame, color: str) -> pd.DataFrame:
                 'props': [('background-color', color)]}]
             )
 
-# Plot
-
-#def plot_df(df: pd.DataFrame) -> plt.Figure
-    
 
 # ARQUIVOS
 
@@ -409,6 +443,8 @@ def main():
     nrows_inv = 0
     nrows_ver_fails = 0
     nrows_inv_fails = 0
+    fig_list_plot = list()
+    fig_list_heatmap = list()
     for sr_type in file_names_dict:
         logging.info(f"Lendo {sr_type}")
 
@@ -416,6 +452,8 @@ def main():
         rooms_cols = get_rooms_cols(dict_dfs[list(dict_dfs.keys())[0]])
         df_agg = create_df_agg(dict_dfs, rooms_cols)
         df_ver, df_inv = get_dfs_replaced_droped(df_agg)
+        df_ver.index += 1
+        df_inv.index += 1
 
         nrows_ver = write_df(df_ver, 'sim_ver', writer_ver, sr_type, nrows_ver)
         nrows_inv = write_df(df_inv, 'sim_inv', writer_inv, sr_type, nrows_inv)
@@ -427,8 +465,15 @@ def main():
         nrows_ver_fails = write_df_fails(df_ver_fails, 'fails_ver', writer_ver_fails, sr_type, nrows_ver_fails)
         nrows_inv_fails = write_df_fails(df_inv_fails, 'fails_inv', writer_inv_fails, sr_type, nrows_inv_fails)
         
-        df_plots(os.path.join(abs_path, out_path, f'{sr_type}_ver.pdf'), df_ver, sr_type) 
-        df_plots(os.path.join(abs_path, out_path, f'{sr_type}_inv.pdf'), df_inv, sr_type) 
+        fig_list_plot.extend(df_plots(df_ver, sr_type))
+        fig_list_plot.extend(df_plots(df_inv, sr_type, "INV"))
+
+        fig_list_heatmap.extend(df_heatmap(df_ver, sr_type))
+        fig_list_heatmap.extend(df_heatmap(df_inv, sr_type, "INV"))
+
+
+    to_pdf(os.path.join(abs_path, out_path, 'plots.pdf'), fig_list_plot)
+    to_pdf(os.path.join(abs_path, out_path, 'heatmaps.pdf'), fig_list_heatmap)
 
     writer_ver.save()
     writer_ver.close()
