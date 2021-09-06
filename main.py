@@ -1,22 +1,35 @@
 import pandas as pd
 import os
-from io import FileIO
 import copy
 from logging.handlers import RotatingFileHandler
 import logging
 import sys
 from seaborn import light_palette
-from weasyprint import HTML
 from itertools import product
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
+import matplotlib.cbook as cbook
 from scipy import interpolate
 import seaborn as sns
 
 
 abs_path = "C:/iot_sim_proc"
 out_path = 'output'
+
+
+def read_img(img_path: str) -> plt.Figure:
+    """Recebe o caminho de uma imagem e retorna uma
+    figura do pyplot."""
+
+    with cbook.get_sample_data(img_path) as image_file:
+        image = plt.imread(image_file)
+
+        fig, ax = plt.subplots()
+        im = ax.imshow(image)
+        ax.axis('off')
+    
+    return fig
 
 
 def write_df(df: pd.DataFrame, file_name: str, writer: pd.ExcelWriter, sr_type: str, nrows: int) -> int:
@@ -119,33 +132,12 @@ def df_heatmap(df: pd.DataFrame, sr_type: str, season="VER"):
             ax = sns.heatmap(df[col], annot=True, fmt='.2f', vmin=get_min_temp(df)+3, cmap="YlGnBu" )
         
         plt.ylabel("Hora")
-        plt.xlabel("Adsortância")
+        plt.xlabel("Absortância")
         plt.title(f"{sr_type} {col}")
         figs.append(fig)
         plt.close()
     
     return figs
-
-def heatmap(df: pd.DataFrame, background_color: str, 
-        text_color: str, vmax: float, threshold: float, 
-        subset: list, axis: int) -> str:
-    """Recebe um DataFrame e retorna a representação em html
-    do background como um gradiente de cor"""
-
-    cm = sns.light_palette(background_color, as_cmap=True)
-    return df.style.background_gradient(cmap=cm, axis=axis, 
-            subset=subset, vmax=vmax).applymap(
-                    lambda x: f'background-color:red; color:{text_color};' 
-                    if x>threshold else None).render()
-
-def color_header(df: pd.DataFrame, color: str) -> pd.DataFrame:
-    """Recebe um dataframe e muda o style para ter css 
-    com cabçalho colorido"""
-
-    return df.style.set_table_styles(
-            [{'selector': 'th',
-                'props': [('background-color', color)]}]
-            )
 
 
 # ARQUIVOS
@@ -203,9 +195,9 @@ def get_rooms_cols(df: pd.DataFrame) -> list:
             not in header and "Drybulb" not in header]
 
 def create_df_agg(dict_dfs: dict, rooms_cols: list) -> pd.DataFrame:
-    """Recebe o dicionário com todos os dataframes por adsortância
+    """Recebe o dicionário com todos os dataframes por absortância
     e a lista de cols que se referem a cômodos. Retorna o dataframe
-    agregando por comodo, todas as adsortâncias."""
+    agregando por comodo, todas as absortâncias."""
     
     agg_dict = dict()
     for adsort in dict_dfs:
@@ -337,8 +329,8 @@ def test_temp(temp: float, temp_obj: float, func_obj) -> bool:
     
 
 def fail_temps(df: pd.DataFrame, season="Verão") -> dict:
-    """Recebe um dataframe agregado das adsortâncias e a estação
-    e retorna um dicionario dos comodos e adsortâncias, como
+    """Recebe um dataframe agregado das absortâncias e a estação
+    e retorna um dicionario dos comodos e absortâncias, como
     chave, e, como valor, o horário."""
    
     if season == "Verão":
@@ -421,6 +413,8 @@ def main():
     logs_path = os.path.join(abs_path, 'sim_term.log')
     set_logging(logs_path)
 
+    logging.info("Início")
+    
     try:
         file_names_list = os.listdir(path_sim_folder)
     except FileNotFoundError:
@@ -430,21 +424,37 @@ def main():
 
     file_names_dict = get_file_names_dict(file_names_list)
     
+    for i in range(2):
+        try:
+            writer_ver = pd.ExcelWriter(os.path.join(abs_path, out_path, "sim_ver.xlsx")
+                    , engine='xlsxwriter')
+            writer_inv = pd.ExcelWriter(os.path.join(abs_path, out_path, "sim_inv.xlsx")
+                    , engine='xlsxwriter')
+            writer_ver_fails = pd.ExcelWriter(os.path.join(abs_path, out_path, "fails_ver.xlsx")
+                    , engine='xlsxwriter')
+            writer_inv_fails = pd.ExcelWriter(os.path.join(abs_path, out_path, "fails_inv.xlsx")
+                    , engine='xlsxwriter')
+        except FileNotFoundError:
+            os.mkdir(os.path.join(abs_path, out_path))
+            continue
 
-    writer_ver = pd.ExcelWriter(os.path.join(abs_path, out_path, "sim_ver.xlsx")
-            , engine='xlsxwriter')
-    writer_inv = pd.ExcelWriter(os.path.join(abs_path, out_path, "sim_inv.xlsx")
-            , engine='xlsxwriter')
-    writer_ver_fails = pd.ExcelWriter(os.path.join(abs_path, out_path, "fails_ver.xlsx")
-            , engine='xlsxwriter')
-    writer_inv_fails = pd.ExcelWriter(os.path.join(abs_path, out_path, "fails_inv.xlsx")
-            , engine='xlsxwriter')
     nrows_ver = 0
     nrows_inv = 0
     nrows_ver_fails = 0
     nrows_inv_fails = 0
-    fig_list_plot = list()
-    fig_list_heatmap = list()
+    
+    logging.info("Carregando capas")
+    cover_path_one = os.path.join(abs_path, 'anexo1.JPG')
+    cover_path_two = os.path.join(abs_path, 'anexo2.JPG')
+    
+    try:
+        fig_list_plot = [read_img(cover_path_one)]
+        fig_list_heatmap = [read_img(cover_path_two)]
+    except FileNotFoundError:
+        raise FileNotFoundError("Não foi encontrado o arquivo de capa anexo1.JPG ou anexo2.JPG."\
+                f" Confira se eles estão no caminho correto {abs_path} e se os nomes estão corretos,"\
+                " inclusive a letra maiuscula no JPG.")
+
     for sr_type in file_names_dict:
         logging.info(f"Lendo {sr_type}")
 
@@ -455,6 +465,7 @@ def main():
         df_ver.index += 1
         df_inv.index += 1
 
+        logging.info("Escrevendo dfs")
         nrows_ver = write_df(df_ver, 'sim_ver', writer_ver, sr_type, nrows_ver)
         nrows_inv = write_df(df_inv, 'sim_inv', writer_inv, sr_type, nrows_inv)
        
@@ -462,19 +473,25 @@ def main():
         fail_cols_inv = fail_temps(df_inv, season="Inverno")
         df_ver_fails = process_fail_temps(fail_cols_ver)
         df_inv_fails = process_fail_temps(fail_cols_inv)
+        
+        logging.info("Escrevendo dfs de falhas")
         nrows_ver_fails = write_df_fails(df_ver_fails, 'fails_ver', writer_ver_fails, sr_type, nrows_ver_fails)
         nrows_inv_fails = write_df_fails(df_inv_fails, 'fails_inv', writer_inv_fails, sr_type, nrows_inv_fails)
         
+        logging.info("Criando os gráficos de linha")
         fig_list_plot.extend(df_plots(df_ver, sr_type))
         fig_list_plot.extend(df_plots(df_inv, sr_type, "INV"))
 
+        logging.info("Criando os heatmaps")
         fig_list_heatmap.extend(df_heatmap(df_ver, sr_type))
         fig_list_heatmap.extend(df_heatmap(df_inv, sr_type, "INV"))
 
 
-    to_pdf(os.path.join(abs_path, out_path, 'plots.pdf'), fig_list_plot)
-    to_pdf(os.path.join(abs_path, out_path, 'heatmaps.pdf'), fig_list_heatmap)
+    logging.info("Escrevendo os pdfs")
+    to_pdf(os.path.join(abs_path, out_path, 'Anexo I.pdf'), fig_list_plot)
+    to_pdf(os.path.join(abs_path, out_path, 'Anexo II.pdf'), fig_list_heatmap)
 
+    logging.info("Fechando os excels")
     writer_ver.save()
     writer_ver.close()
     writer_inv.save()
