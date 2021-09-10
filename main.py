@@ -89,8 +89,16 @@ def df_plots(df: pd.DataFrame, sr_type: str, season: str = "VER"):
     tck_drybulb = interpolate.splrep(x, drybulb_temps, s=0)
     x_interp = np.arange(1, 25, 0.1)
     
-    for col in room_cols_season:
-        fig, axs = plt.subplots()
+    for n, col in enumerate(room_cols_season):
+        
+        if n % 4 == 0:
+            if n > 0:
+                fig.tight_layout()
+                figs.append(fig)
+                plt.close()
+            fig = plt.figure()
+
+        plt.subplot(2, 2, n%4 + 1)
 
         n_plots = len(df[col].columns) + 1
         
@@ -113,8 +121,10 @@ def df_plots(df: pd.DataFrame, sr_type: str, season: str = "VER"):
         plt.xlabel("Hora")
         plt.title(f"{sr_type} {col}")
 
-        figs.append(fig) 
-        plt.close()
+        
+    fig.tight_layout()
+    figs.append(fig) 
+    plt.close()
 
     return figs
 
