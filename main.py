@@ -71,16 +71,17 @@ def to_pdf(file_name: str, figs: plt.Figure) -> bool:
 def df_plots(df: pd.DataFrame, sr_type: str, season: str = "VER"):
     
     figs = list()
-    colormap = plt.cm.nipy_spectral
     
     # plot max or min
     if season == "VER":
         limit_temp = get_max_temp(df)
         label = 'Max Temp'
+        colormap = plt.cm.get_cmap("inferno")
     else:
         limit_temp = get_min_temp(df) + 3
         label = 'Min Temp'
-    
+        colormap = plt.cm.get_cmap("YlGnBu")
+
     temp_col = get_temp_col(df)
     room_cols_season = set(col[0] for col in get_rooms_cols(df))
     drybulb_temps = df[temp_col].values
