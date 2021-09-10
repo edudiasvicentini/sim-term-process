@@ -76,8 +76,10 @@ def df_plots(df: pd.DataFrame, sr_type: str, season: str = "VER"):
     # plot max or min
     if season == "VER":
         limit_temp = get_max_temp(df)
+        label = 'Max Temp'
     else:
         limit_temp = get_min_temp(df) + 3
+        label = 'Min Temp'
     
     temp_col = get_temp_col(df)
     room_cols_season = set(col[0] for col in get_rooms_cols(df))
@@ -103,7 +105,7 @@ def df_plots(df: pd.DataFrame, sr_type: str, season: str = "VER"):
         plt.plot(x, drybulb_temps, 'o', color=colormap((pos+1)/n_plots), markersize=2)
         plt.plot(x_interp, y_interp, label="Drybulb", color=colormap((pos+1)/n_plots) )
 
-        plt.plot(range(1, 25), [limit_temp]*24, label="Max Temp", color=colormap(0.99))
+        plt.plot(range(1, 25), [limit_temp]*24, label=label, color=colormap(0.99))
         
         plt.legend(loc='lower right', fontsize='x-small')
         plt.ylabel("Temperatura (ºC)")
@@ -447,9 +449,11 @@ def main():
     cover_path_one = os.path.join(abs_path, 'anexo1.JPG')
     cover_path_two = os.path.join(abs_path, 'anexo2.JPG')
     
+    fig_list_plot_inv = []
+    fig_list_heatmap_inv = []
     try:
-        fig_list_plot = [read_img(cover_path_one)]
-        fig_list_heatmap = [read_img(cover_path_two)]
+        fig_list_plot_ver = [read_img(cover_path_one)]
+        fig_list_heatmap_ver = [read_img(cover_path_two)]
     except FileNotFoundError:
         raise FileNotFoundError("Não foi encontrado o arquivo de capa anexo1.JPG ou anexo2.JPG."\
                 f" Confira se eles estão no caminho correto {abs_path} e se os nomes estão corretos,"\
@@ -479,17 +483,20 @@ def main():
         nrows_inv_fails = write_df_fails(df_inv_fails, 'fails_inv', writer_inv_fails, sr_type, nrows_inv_fails)
         
         logging.info("Criando os gráficos de linha")
-        fig_list_plot.extend(df_plots(df_ver, sr_type))
-        fig_list_plot.extend(df_plots(df_inv, sr_type, "INV"))
+        fig_list_plot_ver.extend(df_plots(df_ver, sr_type))
+        fig_list_plot_inv.extend(df_plots(df_inv, sr_type, "INV"))
 
         logging.info("Criando os heatmaps")
-        fig_list_heatmap.extend(df_heatmap(df_ver, sr_type))
-        fig_list_heatmap.extend(df_heatmap(df_inv, sr_type, "INV"))
+        fig_list_heatmap_ver.extend(df_heatmap(df_ver, sr_type))
+        fig_list_heatmap_inv.extend(df_heatmap(df_inv, sr_type, "INV"))
 
+
+    fig_list_plot_ver.extend(fig_list_plot_inv)
+    fig_list_heatmap_ver.extend(fig_list_heatmap_inv)
 
     logging.info("Escrevendo os pdfs")
-    to_pdf(os.path.join(abs_path, out_path, 'Anexo I.pdf'), fig_list_plot)
-    to_pdf(os.path.join(abs_path, out_path, 'Anexo II.pdf'), fig_list_heatmap)
+    to_pdf(os.path.join(abs_path, out_path, 'Anexo I.pdf'), fig_list_plot_ver)
+    to_pdf(os.path.join(abs_path, out_path, 'Anexo II.pdf'), fig_list_heatmap_ver)
 
     logging.info("Fechando os excels")
     writer_ver.save()
