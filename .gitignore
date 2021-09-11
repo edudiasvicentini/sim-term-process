@@ -5,5 +5,4 @@ build/
 dist/
 *.spec
 *.rar
-*.csv
 *.pdf
