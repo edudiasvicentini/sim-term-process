@@ -25,10 +25,10 @@ jobs:
     - name: build with pyinstaller
       run: |
         pyinstaller --noconfirm main.py
-        dir
         powershell Compress-Archive dist dist.zip
+        dir
     - name: upload to release
-      uses: skx/github-action-publish-binaries@master
+      uses: actions/create-release@latest
       env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
