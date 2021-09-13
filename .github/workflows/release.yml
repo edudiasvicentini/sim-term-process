@@ -1,4 +1,4 @@
-name: Python unittest
+name: Release zip
 
 on:
   push:
@@ -27,9 +27,20 @@ jobs:
         pyinstaller --noconfirm main.py
         powershell Compress-Archive dist dist.zip
         dir
-    - name: upload to release
+    - name: Create release
       uses: actions/create-release@latest
       env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-          args: "dist.zip"
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+	- name: Upload Release Asset
+        id: upload-release
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./dist.zip
+          asset_name: dist.zip
+          asset_content_type: application/zip
