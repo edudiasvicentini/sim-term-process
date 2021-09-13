@@ -1,5 +1,5 @@
 exe:
-	pyinstaller main.py
+	pyinstaller --noconfirm main.py
 
 test:
 	python3 -m unittest

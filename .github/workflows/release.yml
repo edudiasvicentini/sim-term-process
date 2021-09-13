@@ -2,7 +2,7 @@ name: Python unittest
 
 on:
   push:
-    branches: [ master]
+    branches: [feature/ci2]
 
 jobs:
   build:
@@ -24,8 +24,9 @@ jobs:
         python -m pip install -r requirements.txt
     - name: build with pyinstaller
       run: |
-        python -m pyinstaller main.py
-        ls
+        pyinstaller --noconfirm --dispatch ${{ GITHUB_WORKSPACE }} main.py
+        dir
+        cd ${{ GITHUB_WORKSPACE }}
         powershell Compress-Archive dist dist.zip
     - name: upload to release
       uses: skx/github-action-publish-binaries@master
