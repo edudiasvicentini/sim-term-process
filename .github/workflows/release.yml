@@ -2,7 +2,7 @@ name: Release zip
 
 on:
   push:
-    branches: [feature/ci2]
+    branches: [feature/ci]
 
 jobs:
   build:
