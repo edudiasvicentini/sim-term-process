@@ -30,19 +30,10 @@ jobs:
         dir
     - name: Create release
       id: create_release
-      uses: actions/create-release@latest
-      env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      uses: svenstaro/upload-release-action@v2
       with:
-          tag_name: release-${{ github.ref }}
-          release_name: Release ${{ github.ref }}
-    - name: Upload Release Asset
-      id: upload-release
-      uses: actions/upload-release-asset@v1
-      env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./dist.zip
-          asset_name: dist.zip
-          asset_content_type: application/zip
+        repo_token: ${{ secrets.GITHUB_TOKEN }}
+        file: dist.zip
+        asset_name: dist.zip
+        tag: ${{ github.ref }}
+        overwrite: true
