@@ -17,6 +17,8 @@ import seaborn as sns
 abs_path = "C:/iot_sim_proc"
 out_path = 'output'
 
+sns.set(font_scale=0.4)
+
 
 def read_img(img_path: str) -> plt.Figure:
     """Recebe o caminho de uma imagem e retorna uma
@@ -136,9 +138,18 @@ def df_heatmap(df: pd.DataFrame, sr_type: str, season="VER"):
     temp_col = get_temp_col(df)
     colormap = plt.cm.nipy_spectral
     room_cols_season = set(col[0] for col in get_rooms_cols(df))
+    
+    for n, col in enumerate(room_cols_season):
+        
+        if n % 4 == 0:
+            if n > 0:
+                fig.tight_layout()
+                figs.append(fig)
+                plt.close()
+            fig = plt.figure()
 
-    for col in room_cols_season:
-        fig, axs = plt.subplots()
+        plt.subplot(2, 2, n%4 + 1)
+
         if season == "VER":
             ax = sns.heatmap(df[col], annot=True, fmt='.2f', vmax=get_max_temp(df) )
         else:
@@ -147,8 +158,10 @@ def df_heatmap(df: pd.DataFrame, sr_type: str, season="VER"):
         plt.ylabel("Hora")
         plt.xlabel("Absortância")
         plt.title(f"{sr_type} {col}")
-        figs.append(fig)
-        plt.close()
+    
+    fig.tight_layout()
+    figs.append(fig) 
+    plt.close()
     
     return figs
 
