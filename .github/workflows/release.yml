@@ -28,7 +28,6 @@ jobs:
         pyinstaller --noconfirm main.py
         powershell Compress-Archive dist dist.zip
         dir 
-    steps:
     - name: Create release
       if: contains(github.ref, 'master')
       id: create_release
