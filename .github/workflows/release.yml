@@ -2,7 +2,7 @@ name: Release zip
 
 on:
   push:
-    branches: [master, feature/ci]
+    branches: [master, dev]
 
 jobs:
   build:
@@ -28,6 +28,16 @@ jobs:
         pyinstaller --noconfirm main.py
         powershell Compress-Archive dist dist.zip
         dir
+
+  release:
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        python-version: [3.9]
+      fail-fast: false
+    
+    if: contains(github.ref, 'master')
+    steps:
     - name: Create release
       id: create_release
       uses: svenstaro/upload-release-action@v2
