@@ -36,7 +36,7 @@ jobs:
         python-version: [3.9]
       fail-fast: false
     
-    if: contains(github.ref, "master")
+    if: contains(github.ref, 'master')
     steps:
     - name: Create release
       id: create_release
